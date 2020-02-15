@@ -11,18 +11,71 @@ IO1DIR EQU 0xE0028018
 IO1SET EQU 0xE0028014
 IO1CLR EQU 0xE002801C
 IO1PIN EQU 0xE0028010
+INCREASE_NUM_BUTTON EQU 20
 
   ; initialise SP
   ldr r13, =0x40002000 ; initialise SP to top of stack
 
   bl initLED
   bl initButtons
-whileT
-  ldr r0, =4000000
+  mov r0, #0xa
+  bl displayNum
+  mov r4, #0                    ; num = 0
+
+  mov r5, #0                    ; sum = 0
+whileT                          ; while (true) {
+  ldr r0, =4000000              ;   button_index = readButtonPress(4000000);
   bl readButtonPress
-  b whileT
+  b whileT                      ; }
 
 stop  B  stop
+
+;
+; reverse
+; reverses the input num bitwise
+; parameters:
+;   r0 - num - to reverse
+;   r1 - num_bits - is significant bits to reverse
+; return:
+;   r0 - reversed bits
+;
+reverse
+  stmfd sp!, {r4, lr}
+  sub r1, r1, #1              ; num_bits--
+  mov r2, #1                  ; mask = 1
+  mov r4, #0                  ; result = 0
+rWhileN
+  cmp r0, #0                  ; while (num != 0)
+  beq reWhileN                ; {
+  and r3, r0, r2              ;   bit = mask & num
+  cmp r3, #0                  ;   if (bit != 0)
+  beq reif                    ;   {
+  orr r4, r4, r2, lsl r1      ;     result |= 1 << num_bits
+reif                          ;   }
+  mov r0, r0, lsr #1          ;   num >>= 1
+  sub r1, r1, #1              ;   num_bits--
+  b rWhileN                   ; }
+reWhileN
+  mov r0, r4                  ; reversed = result
+  ldmfd sp!, {r4, pc}
+
+;
+; displayNum
+; displays the 4 bit input number
+; parameters:
+;   r0 - input - the number to dispay
+; return:
+;   none
+;
+displayNum
+  and r0, #0xf                  ; input &= 0xf
+  mov r1, #4                    ; input = reverse(input, 4);
+  bl reverse
+  lsl r0, #16                   ; input <<= 16
+  ldr r1, =IO1CLR               ; temp = IO1CLR
+  str r0, [r1]                  ; turnOnLEDS(input)
+  bx lr
+
 
 ;
 ; readButtonPress
@@ -94,7 +147,7 @@ getButtonIndexeWhile0           ; }
 getButtonIndexeif0              ; else
   sub r2, #1                    ; {
   mov r0, r2                    ;   index = i - 1
-  add r0, #20                   ;   index += 20
+  add r0, #INCREASE_NUM_BUTTON  ;   index += INCREASE_NUM_BUTTON
   bx lr                         ;   return index
                                 ; }
 
