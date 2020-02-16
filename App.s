@@ -12,17 +12,22 @@ IO1SET EQU 0xE0028014
 IO1CLR EQU 0xE002801C
 IO1PIN EQU 0xE0028010
 INCREASE_NUM_BUTTON EQU 20
+DECREASE_NUM_BUTTON EQU 21
+PLUS_BUTTON EQU 22
+MINUS_BUTTON EQU 23
+CLEAR_LAST_OP_BUTTON EQU -22
+CLEAR_ALL_BUTTON EQU -23
 
   ; initialise SP
+
   ldr r13, =0x40002000 ; initialise SP to top of stack
 
-  bl initLED
-  bl initButtons
-  mov r0, #0xa
-  bl displayNum
-  mov r4, #0                    ; num = 0
+  ;
+  ; main
+  ;
 
-  mov r5, #0                    ; sum = 0
+  bl initLED                    ; initLED()
+  bl initButtons                ; initButtons()
 whileT                          ; while (true) {
   ldr r0, =4000000              ;   button_index = readButtonPress(4000000);
   bl readButtonPress
@@ -60,6 +65,20 @@ reWhileN
   ldmfd sp!, {r4, pc}
 
 ;
+; clearNumDisplay
+; clears the 4 bit number displayed on the LEDs
+; parameters:
+;   none
+; return:
+;   none
+;
+clearNumDisplay
+  ldr  r0,=IO1SET
+  ldr  r1,=0x000f0000  ;select P1.19--P1.16
+  str  r1,[r0]    ;set them to turn the LEDs off
+  bx lr
+
+;
 ; displayNum
 ; displays the 4 bit input number
 ; parameters:
@@ -68,13 +87,17 @@ reWhileN
 ;   none
 ;
 displayNum
+  stmdb sp!, {r4, lr}
+  mov r4, r0
+  bl clearNumDisplay            ; clearNumDisplay()
+  mov r0, r4
   and r0, #0xf                  ; input &= 0xf
-  mov r1, #4                    ; input = reverse(input, 4);
-  bl reverse
+  ; mov r1, #4                    ; input = reverse(input, 4);
+  ; bl reverse
   lsl r0, #16                   ; input <<= 16
   ldr r1, =IO1CLR               ; temp = IO1CLR
   str r0, [r1]                  ; turnOnLEDS(input)
-  bx lr
+  ldmia sp!, {r4, pc}
 
 
 ;
@@ -131,7 +154,7 @@ getButtonIndex
   and r1, #(0xf << 20)          ;  >> 20
   lsr r1, #20
   mvn r1, r1                    ; curr_state ~= curr_state
-  and r1, 0xf                   ; curr_state &= 0xf
+  and r1, #0xf                   ; curr_state &= 0xf
   mov r2, #0                    ; i = 0
 getButtonIndexWhile0
   cmp r1, #0                    ; while (curr_state != 0)
