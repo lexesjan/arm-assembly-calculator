@@ -72,10 +72,7 @@ def main2():
                 else:
                     total -= num
                 print(total)
-                if btn == "+":
-                    prev_op = "+"
-                else:
-                    prev_op = "-"
+                prev_op = btn
                 first_press = True
                 num = 0
             elif btn == "c":

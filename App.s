@@ -1,22 +1,22 @@
-  AREA  RESET, CODE, READONLY
-;  IMPORT  main
+  AREA  AsmTemplate, CODE, READONLY
+  IMPORT  main
 
 ; sample program makes the 4 LEDs P1.16, P1.17, P1.18, P1.19 go on and off in sequence
 ; (c) Mike Brady, 2011 -- 2019.
 
-;  EXPORT  start
+  EXPORT  start
 start
 
 IO1DIR EQU 0xE0028018
 IO1SET EQU 0xE0028014
 IO1CLR EQU 0xE002801C
 IO1PIN EQU 0xE0028010
-INCREASE_NUM_BUTTON EQU 20
-DECREASE_NUM_BUTTON EQU 21
-PLUS_BUTTON EQU 22
-MINUS_BUTTON EQU 23
-CLEAR_LAST_OP_BUTTON EQU -22
-CLEAR_ALL_BUTTON EQU -23
+INCREASE_NUM_BUTTON EQU 23
+DECREASE_NUM_BUTTON EQU 22
+PLUS_BUTTON EQU 21
+MINUS_BUTTON EQU 20
+CLEAR_BUTTON EQU -21
+RESET_BUTTON EQU -20
 
   ; initialise SP
 
@@ -31,23 +31,25 @@ CLEAR_ALL_BUTTON EQU -23
 whileT                          ; while (true) {
   mov r4, #0                    ;   num = 0
   mov r5, #0                    ;   sum = 0
-  mov r6, #'+'                  ;   prev_operator = '+'
+  mov r6, #PLUS_BUTTON          ;   prev_operator = PLUS_BUTTON
   mov r7, #0                    ;   first_press = false
   mov r8, #0                    ;   reset = false
+  bl clearNumDisplay            ;   clearNumDisplay()
 whileReset
   cmp r8, #0                    ;   while (!reset)
   bne eWhileReset               ;   {
   ldr r0, =4000000              ;     button_index = readButtonPress(4000000);
   bl readButtonPress
-  cmp r0, #INCREASE_NUM_BUTTON  ;     if (button_index == INCREASE_NUM_BUTTON ||
+  mov r9, r0
+  cmp r9, #INCREASE_NUM_BUTTON  ;     if (button_index == INCREASE_NUM_BUTTON ||
   beq ifIncOrDecBtn             ;           button_index == DECREASE_NUM_BUTTON)
-  cmp r0, #DECREASE_NUM_BUTTON  ;     {
+  cmp r9, #DECREASE_NUM_BUTTON  ;     {
   beq ifIncOrDecBtn
   b ifNotIncOrDecBtn
 ifIncOrDecBtn
   cmp r7, #0                    ;       if (!first_press)
   bne ifNotFirstPress           ;       {
-  cmp r0, #INCREASE_NUM_BUTTON  ;         if (button_index == INCREASE_NUM_BUTTON)
+  cmp r9, #INCREASE_NUM_BUTTON  ;         if (button_index == INCREASE_NUM_BUTTON)
   bne ifIncBtn                  ;         {
   add r4, #1                    ;           num++
   b ifNotIncBtn                 ;         }
@@ -58,32 +60,48 @@ ifNotIncBtn                     ;         }
   b ifFirstPress                ;       }
 ifNotFirstPress                 ;       else
                                 ;       {
+  mov r0, r4                    ;         displayNum(num)
+  bl displayNum
   mov r7, #0                    ;         first_press = false
 ifFirstPress                    ;       }
+  mov r0, r4                    ;       displayNum(num)
+  bl displayNum
   b whileReset
 ifNotIncOrDecBtn                ;     }
-  cmp r0, #PLUS_BUTTON          ;     else if (button_index == PLUS_BUTTON ||
+  cmp r9, #PLUS_BUTTON          ;     else if (button_index == PLUS_BUTTON ||
   beq ifPlusOrMinusBtn          ;               button_index == MINUS_BUTTON)
-  cmp r0, #MINUS_BUTTON         ;     {
+  cmp r9, #MINUS_BUTTON         ;     {
   beq ifPlusOrMinusBtn
   b ifNotPlusOrMinusBtn
 ifPlusOrMinusBtn
-  cmp r6, #PLUS_BUTTON          ;       if (prev_operator == PLUS_BUTTON)
-  bne ifNotPlusBtn              ;       {
-  add r5, r4                    ;         sum += num
-  b eIfPlusBtn                  ;       }
-ifNotPlusBtn                    ;       else
-                                ;       {
-  sub r5, r4                    ;         sum -= num
-eIfPlusBtn                      ;       }
-  b whileReset                  ;     }
-ifNotPlusOrMinusBtn
-
-
-
-
-
-
+  cmp r6, #PLUS_BUTTON          ;      if (prev_operator == PLUS_BUTTON)
+  bne ifNotPlusBtn              ;      {
+  add r5, r4                    ;        sum += num
+  b eIfPlusBtn                  ;      }
+ifNotPlusBtn                    ;      else
+                                ;      {
+  sub r5, r4                    ;        sum -= num
+eIfPlusBtn                      ;      }
+  mov r0, r5                    ;      displayNum(sum)
+  bl displayNum
+  mov r6, r9                    ;      prev_operator = button_index
+  mov r7, #1                    ;      first_press = true
+  mov r4, #0                    ;      num = 0
+  b whileReset                  ;    }
+ifNotPlusOrMinusBtn             ;    else if (button_index == CLEAR_BUTTON)
+  cmp r9, #CLEAR_BUTTON         ;    {
+  bne ifNotClearButton
+  mov r6, #PLUS_BUTTON          ;      prev_operator = PLUS_BUTTON
+  mov r7, #0                    ;      first_press = false
+  mov r4, #0                    ;      num = 0
+  mov r0, r4                    ;      displayNum(num)
+  bl displayNum
+  b whileReset                  ;    }
+ifNotClearButton                ;    else if (button_index == RESET_BUTTON)
+  cmp r9, #RESET_BUTTON         ;    {
+  bne whileReset
+  mov r8, #1                    ;      reset = true
+                                ;    }
   b whileReset                  ;   }
 eWhileReset
   b whileT                      ; }
@@ -147,8 +165,8 @@ displayNum
   bl clearNumDisplay            ; clearNumDisplay()
   mov r0, r4
   and r0, #0xf                  ; input &= 0xf
-  ; mov r1, #4                    ; input = reverse(input, 4);
-  ; bl reverse
+  mov r1, #4                    ; input = reverse(input, 4);
+  bl reverse
   lsl r0, #16                   ; input <<= 16
   ldr r1, =IO1CLR               ; temp = IO1CLR
   str r0, [r1]                  ; turnOnLEDS(input)
@@ -225,7 +243,7 @@ getButtonIndexeWhile0           ; }
 getButtonIndexeif0              ; else
   sub r2, #1                    ; {
   mov r0, r2                    ;   index = i - 1
-  add r0, #INCREASE_NUM_BUTTON  ;   index += INCREASE_NUM_BUTTON
+  add r0, #MINUS_BUTTON         ;   index += MINUS_BUTTON
   bx lr                         ;   return index
                                 ; }
 
