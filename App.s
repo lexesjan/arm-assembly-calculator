@@ -29,8 +29,63 @@ CLEAR_ALL_BUTTON EQU -23
   bl initLED                    ; initLED()
   bl initButtons                ; initButtons()
 whileT                          ; while (true) {
-  ldr r0, =4000000              ;   button_index = readButtonPress(4000000);
+  mov r4, #0                    ;   num = 0
+  mov r5, #0                    ;   sum = 0
+  mov r6, #'+'                  ;   prev_operator = '+'
+  mov r7, #0                    ;   first_press = false
+  mov r8, #0                    ;   reset = false
+whileReset
+  cmp r8, #0                    ;   while (!reset)
+  bne eWhileReset               ;   {
+  ldr r0, =4000000              ;     button_index = readButtonPress(4000000);
   bl readButtonPress
+  cmp r0, #INCREASE_NUM_BUTTON  ;     if (button_index == INCREASE_NUM_BUTTON ||
+  beq ifIncOrDecBtn             ;           button_index == DECREASE_NUM_BUTTON)
+  cmp r0, #DECREASE_NUM_BUTTON  ;     {
+  beq ifIncOrDecBtn
+  b ifNotIncOrDecBtn
+ifIncOrDecBtn
+  cmp r7, #0                    ;       if (!first_press)
+  bne ifNotFirstPress           ;       {
+  cmp r0, #INCREASE_NUM_BUTTON  ;         if (button_index == INCREASE_NUM_BUTTON)
+  bne ifIncBtn                  ;         {
+  add r4, #1                    ;           num++
+  b ifNotIncBtn                 ;         }
+ifIncBtn                        ;         else
+                                ;         {
+  sub r4, #1                    ;           num--
+ifNotIncBtn                     ;         }
+  b ifFirstPress                ;       }
+ifNotFirstPress                 ;       else
+                                ;       {
+  mov r7, #0                    ;         first_press = false
+ifFirstPress                    ;       }
+  b whileReset
+ifNotIncOrDecBtn                ;     }
+  cmp r0, #PLUS_BUTTON          ;     else if (button_index == PLUS_BUTTON ||
+  beq ifPlusOrMinusBtn          ;               button_index == MINUS_BUTTON)
+  cmp r0, #MINUS_BUTTON         ;     {
+  beq ifPlusOrMinusBtn
+  b ifNotPlusOrMinusBtn
+ifPlusOrMinusBtn
+  cmp r6, #PLUS_BUTTON          ;       if (prev_operator == PLUS_BUTTON)
+  bne ifNotPlusBtn              ;       {
+  add r5, r4                    ;         sum += num
+  b eIfPlusBtn                  ;       }
+ifNotPlusBtn                    ;       else
+                                ;       {
+  sub r5, r4                    ;         sum -= num
+eIfPlusBtn                      ;       }
+  b whileReset                  ;     }
+ifNotPlusOrMinusBtn
+
+
+
+
+
+
+  b whileReset                  ;   }
+eWhileReset
   b whileT                      ; }
 
 stop  B  stop
