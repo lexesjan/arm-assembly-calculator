@@ -11,6 +11,7 @@ IO1DIR EQU 0xE0028018
 IO1SET EQU 0xE0028014
 IO1CLR EQU 0xE002801C
 IO1PIN EQU 0xE0028010
+BOUNCE_CUTTOFF EQU (1 << 11)
 INCREASE_NUM_BUTTON EQU 23
 DECREASE_NUM_BUTTON EQU 22
 PLUS_BUTTON EQU 21
@@ -202,6 +203,11 @@ readButtonPressDoWhile1         ; do {
   add r7, #1                    ;   i++
   cmp r5, #0
   beq readButtonPressDoWhile1   ; } while (curr_state == 0)
+  cmp r7, #BOUNCE_CUTTOFF       ; if (i < BOUNCE_CUTTOFF)
+  bge readButtonPressGreater    ; {
+  mov r0, #0                    ;   return 0
+  ldmia sp!, {r4-r8, pc}
+readButtonPressGreater          ; }
   cmp r7, r8                    ; if (i < cutoff)
   bge getButtonIndexif0         ; {
   ldmia sp!, {r4-r8, pc}        ;   return button_index
