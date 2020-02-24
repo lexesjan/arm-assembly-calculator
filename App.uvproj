@@ -430,6 +430,13 @@
         </Group>
         <Group>
           <GroupName>Library</GroupName>
+          <Files>
+            <File>
+              <FileName>EA-LPC2138-EDU-ASM.lib</FileName>
+              <FileType>4</FileType>
+              <FilePath>.\EA-LPC2138-EDU-ASM.lib</FilePath>
+            </File>
+          </Files>
         </Group>
       </Groups>
     </Target>
